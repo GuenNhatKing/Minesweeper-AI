@@ -11,6 +11,8 @@ class AI:
         self.actions: set[tuple[tuple[int, int], Action]] = set()
         self.frontier: set[tuple[int, int]] = set()
         self.snapshot: list[list[CellState]] = None
+        self.observer_task: list[list[(int, int)]] = None
+        self.observer_first = None
         
     def check_rule_1(self, x, y):
         mines_count = self.game.adjacent_mines(x, y)
@@ -96,19 +98,38 @@ class AI:
         self.actions.clear()
         self.frontier.clear()
         self.snapshot = [[self.game.get_cell(i, j).state for i in range(self.game.w)] for j in range(self.game.h)]
+        self.observer_task = [[None for i in range(self.game.w)] for j in range(self.game.h)]
+        for j in range(self.game.h):
+            for i in range(self.game.w):
+                k = j * self.game.w + i
+                next_j = (k + 1) // self.game.w
+                next_i = (k + 1) % self.game.w
+                if next_j < self.game.h and next_i < self.game.w:
+                    self.observer_task[j][i] = (next_j, next_i)
+        self.observer_first = (0, 0)
 
     def observe_changes(self):
         change = False
-        for j in range(self.game.h):
-            for i in range(self.game.w):
-                if self.game.get_cell(i, j).state != self.snapshot[j][i]:
-                    self.snapshot[j][i] = self.game.get_cell(i, j).state
-                    if self.game.get_cell(i, j).state == CellState.PROBED and self.game.adjacent_unprobed(i, j):
-                        self.frontier.add((i, j))
-                    for nx, ny in self.game.neighbors(i, j):
-                        if self.game.get_cell(nx, ny).state == CellState.PROBED and self.game.adjacent_unprobed(nx, ny):
-                            self.frontier.add((nx, ny))
-                    change = True
+        observer_pos = self.observer_first
+        observer_prev = None
+        num_observed = 0
+        while observer_pos:
+            num_observed += 1
+            j, i = observer_pos
+            if self.game.get_cell(i, j).state != self.snapshot[j][i]:
+                self.snapshot[j][i] = self.game.get_cell(i, j).state
+                if self.game.get_cell(i, j).state == CellState.PROBED and self.game.adjacent_unprobed(i, j):
+                    self.frontier.add((i, j))
+                for nx, ny in self.game.neighbors(i, j):
+                    if self.game.get_cell(nx, ny).state == CellState.PROBED and self.game.adjacent_unprobed(nx, ny):
+                        self.frontier.add((nx, ny))
+                change = True
+            if observer_prev and self.game.get_cell(i, j).state != CellState.UNPROBED:
+                self.observer_task[observer_prev[0]][observer_prev[1]] = self.observer_task[j][i]
+
+            observer_prev = observer_pos
+            observer_pos = self.observer_task[j][i]
+        # print(f"Observed {num_observed} cells.")
         return change
     
     def make_move(self):
