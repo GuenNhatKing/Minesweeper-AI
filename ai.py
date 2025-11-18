@@ -124,9 +124,11 @@ class AI:
                     if self.game.get_cell(nx, ny).state == CellState.PROBED and self.game.adjacent_unprobed(nx, ny):
                         self.frontier.add((nx, ny))
                 change = True
-            if observer_prev and self.game.get_cell(i, j).state != CellState.UNPROBED:
-                self.observer_task[observer_prev[0]][observer_prev[1]] = self.observer_task[j][i]
-
+            if observer_prev:
+                if self.game.get_cell(i, j).state != CellState.UNPROBED:
+                    self.observer_task[observer_prev[0]][observer_prev[1]] = self.observer_task[j][i]
+            else:
+                self.observer_first = self.observer_task[j][i]
             observer_prev = observer_pos
             observer_pos = self.observer_task[j][i]
         # print(f"Observed {num_observed} cells.")
